@@ -1,0 +1,144 @@
+I want you to generate a full-stack project for a "Personal Smart Dashboard" web application. It will be run locally on a VPS (Proxmox container) and accessed remotely using Cloudflare Tunnel. The focus is on modern UI, responsiveness, modular design, and future-ready architecture. Read everything carefully and build the code accordingly.
+
+🔹 Tech Stack Requirements
+Frontend: React + TailwindCSS (or Next.js if recommended)
+Backend: Node.js + Express
+Database: SQLite or PostgreSQL (start with SQLite for convenience)
+Auth: Local password login with hashed storage
+UI Components: Modern, minimal, glassmorphic/Neumorphism feel
+API Layer: REST endpoints for tasks, reminders, subscriptions, car service tracking
+Voice Input: Add placeholder voice functionality using Web Speech API for now
+
+🔹 Main Goal
+
+Build a personal dashboard for daily life management:
+
+Task manager + reminders
+
+Bills tracker & due dates
+
+Car service & tyre change schedule
+
+Subscription renewals
+
+Calendar + timeline view
+
+Notes & quick ideas page
+
+AI-ready infrastructure for voice assistant later
+
+🔹 Core Features to Build
+
+Home Dashboard (Main screen)
+
+Overview tiles: Tasks Due Today | Overdue | Bills Upcoming | Car Service Due | Subscriptions Expiring
+
+Weather widget (using public API placeholder)
+
+Quick voice add reminder button (mic icon → text input for now)
+
+Tasks & Reminders
+
+Add / edit / delete tasks
+
+Category support (Work, Home, Business, Bills, Car etc.)
+
+Recurring reminders
+
+Notifications (browser + email triggers later)
+
+Bills & Utilities
+
+Store bill provider name, amount, due date, last paid date
+
+Color highlight when due/overdue
+
+Option to mark paid
+
+Subscriptions
+
+Store renewal date, cost, cycle (monthly/annual)
+
+Dashboard alert when within X days
+
+Graph for yearly cost breakdown
+
+Car Maintenance
+
+Track next service date or km
+
+Track tyre change date
+
+Upload documents (rego, insurance)
+
+Notes Area
+
+Rich text notes
+
+Attach images & receipts
+
+User Profile Settings
+
+Themes (Light / Dark / AMOLED)
+
+Custom category colours
+
+Data export (JSON backup)
+
+🔹 UI Design Guidelines
+
+Follow this visual direction:
+
+Style: Modern – clean – minimal – dashboard layout
+Look: Neumorphism / Glassmorphism / Material 3
+Components: Cards with soft shadows & rounded edges (2xl)
+Colors: Muted grey background + gradient accents
+Responsive: Desktop, Tablet, Mobile friendly
+Navbar: Sidebar collapsible on desktop, top-nav on mobile
+Animations: Smooth transitions & hover effects
+
+
+Add example layout:
+
+Header: Greeting + Date + Weather
+Left Sidebar: Dashboard | Tasks | Bills | Subscriptions | Car | Notes | Settings
+Main: Grid cards + upcoming reminders
+Footer: Version + local only indicator
+
+🔹 Voice Assistant Stub
+
+Create a button:
+
+🎤 Hold to Speak → converts voice to text → auto opens "Add Task/Reminder" modal
+
+
+Just implement speech→text using Web Speech API for now.
+Agent AI integration field left empty for future.
+
+🔹 Important Rules
+
+The project must be modular & easy to expand.
+
+Store data locally (SQLite DB file).
+
+No external data exposure by default.
+
+Responsive design is required.
+
+Include README with setup instructions.
+
+Deliverables
+
+When generating code:
+
+Full working React + Node project structure
+
+Tailwind ready and configured
+
+Database models & API routes for all modules
+
+Starter dashboard UI
+
+Voice input component for tasks
+
+Instructions on running server and building in README
