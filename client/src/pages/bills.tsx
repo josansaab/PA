@@ -1,10 +1,16 @@
 import { AppLayout } from "@/components/layout/app-layout";
-import { MOCK_BILLS } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
-import { Receipt, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Receipt } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
+import { getBills } from "@/lib/api";
 
 export default function Bills() {
+  const { data: bills = [] } = useQuery({
+    queryKey: ["bills"],
+    queryFn: getBills,
+  });
+
   return (
     <AppLayout>
       <div className="space-y-8">
@@ -13,7 +19,7 @@ export default function Bills() {
         </div>
 
         <div className="grid gap-6">
-          {MOCK_BILLS.map((bill) => (
+          {bills.map((bill) => (
             <div
               key={bill.id}
               className="relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between p-6 rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-white/40 dark:border-white/5 shadow-sm hover:shadow-md transition-all"
@@ -36,7 +42,7 @@ export default function Bills() {
 
               <div className="mt-4 sm:mt-0 pl-4 flex items-center gap-6">
                 <div className="text-right">
-                  <div className="text-xl font-bold text-slate-800 dark:text-slate-100">${bill.amount.toFixed(2)}</div>
+                  <div className="text-xl font-bold text-slate-800 dark:text-slate-100">${Number(bill.amount).toFixed(2)}</div>
                   <Badge 
                     variant={bill.status === "Paid" ? "default" : "destructive"}
                     className={cn(
@@ -52,6 +58,9 @@ export default function Bills() {
               </div>
             </div>
           ))}
+          {bills.length === 0 && (
+            <p className="text-center text-slate-500 py-12">No bills found. Add your first bill!</p>
+          )}
         </div>
       </div>
     </AppLayout>

@@ -1,9 +1,15 @@
 import { AppLayout } from "@/components/layout/app-layout";
-import { MOCK_CAR_SERVICES } from "@/lib/mock-data";
-import { Car, Gavel, FileText, Wrench } from "lucide-react";
+import { Car, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { getCarServices } from "@/lib/api";
 
 export default function CarMaintenance() {
+  const { data: services = [] } = useQuery({
+    queryKey: ["car-services"],
+    queryFn: getCarServices,
+  });
+
   return (
     <AppLayout>
       <div className="space-y-8">
@@ -46,7 +52,7 @@ export default function CarMaintenance() {
         <div className="space-y-4">
            <h3 className="text-xl font-semibold text-slate-800 dark:text-slate-200">Service History</h3>
            <div className="relative border-l-2 border-slate-200 dark:border-slate-800 ml-4 space-y-8 pb-4">
-              {MOCK_CAR_SERVICES.map((service) => (
+              {services.map((service) => (
                 <div key={service.id} className="relative pl-8">
                    <div className="absolute -left-[9px] top-0 h-4 w-4 rounded-full bg-white border-4 border-blue-500" />
                    <div className="glass-card p-5 rounded-xl">
@@ -57,13 +63,20 @@ export default function CarMaintenance() {
                          </div>
                          <span className="text-sm text-slate-500">{service.date}</span>
                       </div>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">{service.notes}</p>
+                      {service.notes && (
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">{service.notes}</p>
+                      )}
                       {service.km && (
                         <p className="text-xs text-slate-400 mt-1">Odometer: {service.km.toLocaleString()} km</p>
                       )}
                    </div>
                 </div>
               ))}
+              {services.length === 0 && (
+                <div className="pl-8 text-slate-500">
+                  No service history found. Add your first service record!
+                </div>
+              )}
            </div>
         </div>
       </div>

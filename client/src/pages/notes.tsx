@@ -1,14 +1,46 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { PenLine } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getNote, updateNote } from "@/lib/api";
+import { useState, useEffect } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 
 export default function Notes() {
+  const queryClient = useQueryClient();
+  const { data: note } = useQuery({
+    queryKey: ["note"],
+    queryFn: getNote,
+  });
+
+  const [content, setContent] = useState("");
+  const debouncedContent = useDebounce(content, 1000);
+
+  useEffect(() => {
+    if (note) {
+      setContent(note.content);
+    }
+  }, [note]);
+
+  const updateNoteMutation = useMutation({
+    mutationFn: (newContent: string) => updateNote(newContent),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["note"] });
+    },
+  });
+
+  useEffect(() => {
+    if (debouncedContent !== undefined && debouncedContent !== note?.content) {
+      updateNoteMutation.mutate(debouncedContent);
+    }
+  }, [debouncedContent]);
+
   return (
     <AppLayout>
       <div className="h-[calc(100vh-140px)] flex flex-col">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-display font-bold text-slate-800 dark:text-slate-100">Notes</h1>
           <div className="text-sm text-slate-500">
-            Auto-saved
+            {updateNoteMutation.isPending ? "Saving..." : "Auto-saved"}
           </div>
         </div>
 
@@ -20,15 +52,8 @@ export default function Notes() {
           <textarea 
             className="flex-1 w-full h-full bg-transparent p-6 resize-none focus:outline-none text-slate-700 dark:text-slate-300 leading-relaxed"
             placeholder="Start typing your thoughts..."
-            defaultValue="Ideas for the new project:
-- Use glassmorphism
-- Focus on typography
-- Add voice input
-
-Groceries:
-- Milk
-- Eggs
-- Bread"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
           />
         </div>
       </div>

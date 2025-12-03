@@ -1,15 +1,29 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { MOCK_TASKS, Task } from "@/lib/mock-data";
-import { Plus, Filter, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, Calendar as CalendarIcon } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getTasks, updateTask } from "@/lib/api";
+import type { Task } from "@shared/schema";
 
 export default function Tasks() {
-  const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState("All");
+
+  const { data: tasks = [] } = useQuery({
+    queryKey: ["tasks"],
+    queryFn: getTasks,
+  });
+
+  const toggleTaskMutation = useMutation({
+    mutationFn: ({ id, completed }: { id: number; completed: boolean }) =>
+      updateTask(id, { completed }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
 
   const categories = ["All", "Work", "Home", "Business", "Bills", "Car"];
 
@@ -53,12 +67,15 @@ export default function Tasks() {
               className="group flex items-center gap-4 p-4 rounded-2xl bg-white/70 dark:bg-slate-900/70 border border-white/40 dark:border-white/5 shadow-sm hover:shadow-md transition-all duration-300"
             >
               <div className="flex-shrink-0">
-                <div className={cn(
-                  "w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors",
-                  task.completed 
-                    ? "bg-green-500 border-green-500" 
-                    : "border-slate-300 hover:border-green-500 dark:border-slate-600"
-                )}>
+                <div 
+                  onClick={() => toggleTaskMutation.mutate({ id: task.id, completed: !task.completed })}
+                  className={cn(
+                    "w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors",
+                    task.completed 
+                      ? "bg-green-500 border-green-500" 
+                      : "border-slate-300 hover:border-green-500 dark:border-slate-600"
+                  )}
+                >
                   {task.completed && <div className="w-3 h-3 bg-white rounded-full" />}
                 </div>
               </div>
@@ -87,6 +104,9 @@ export default function Tasks() {
               )} />
             </div>
           ))}
+          {filteredTasks.length === 0 && (
+            <p className="text-center text-slate-500 py-12">No {filter.toLowerCase()} tasks found.</p>
+          )}
         </div>
       </div>
     </AppLayout>

@@ -1,15 +1,21 @@
 import { AppLayout } from "@/components/layout/app-layout";
-import { MOCK_SUBSCRIPTIONS } from "@/lib/mock-data";
-import { CreditCard, Calendar } from "lucide-react";
+import { Calendar } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { getSubscriptions } from "@/lib/api";
 
 export default function Subscriptions() {
+  const { data: subscriptions = [] } = useQuery({
+    queryKey: ["subscriptions"],
+    queryFn: getSubscriptions,
+  });
+
   return (
     <AppLayout>
       <div className="space-y-8">
         <h1 className="text-3xl font-display font-bold text-slate-800 dark:text-slate-100">Subscriptions</h1>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {MOCK_SUBSCRIPTIONS.map((sub) => (
+          {subscriptions.map((sub) => (
             <div
               key={sub.id}
               className="glass-card p-6 rounded-3xl flex flex-col items-center text-center space-y-4 relative group"
@@ -24,7 +30,7 @@ export default function Subscriptions() {
               </div>
 
               <div className="text-3xl font-bold text-slate-900 dark:text-white">
-                ${sub.cost}
+                ${Number(sub.cost).toFixed(2)}
               </div>
 
               <div className="w-full pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
@@ -35,6 +41,11 @@ export default function Subscriptions() {
               </div>
             </div>
           ))}
+          {subscriptions.length === 0 && (
+            <div className="col-span-full text-center text-slate-500 py-12">
+              No subscriptions found. Add your first subscription!
+            </div>
+          )}
         </div>
       </div>
     </AppLayout>
