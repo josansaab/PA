@@ -1,12 +1,13 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckSquare, Receipt, CreditCard, Car } from "lucide-react";
+import { CheckSquare, Receipt, CreditCard, Car, Calendar, School } from "lucide-react";
 import { VoiceInput } from "@/components/voice-input";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import { getTasks, getBills, getSubscriptions } from "@/lib/api";
+import { getTasks, getBills, getSubscriptions, getUpcomingPayments, getKidsEvents, type UpcomingPayment } from "@/lib/api";
+import type { Bill, Subscription } from "@shared/schema";
 
 export default function Dashboard() {
   const { data: tasks = [] } = useQuery({
@@ -22,6 +23,16 @@ export default function Dashboard() {
   const { data: subscriptions = [] } = useQuery({
     queryKey: ["subscriptions"],
     queryFn: getSubscriptions,
+  });
+
+  const { data: upcomingPayments = [] } = useQuery({
+    queryKey: ["upcoming-payments"],
+    queryFn: () => getUpcomingPayments(14),
+  });
+
+  const { data: kidsEvents = [] } = useQuery({
+    queryKey: ["kids-events"],
+    queryFn: getKidsEvents,
   });
 
   const tasksDueToday = tasks.filter(t => t.dueDate === format(new Date(), "yyyy-MM-dd")).length;
@@ -81,17 +92,60 @@ export default function Dashboard() {
           <Card className="glass-card border-l-4 border-l-emerald-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Car Health
+                School Events
               </CardTitle>
-              <Car className="h-4 w-4 text-emerald-500" />
+              <School className="h-4 w-4 text-emerald-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">Good</div>
+              <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{kidsEvents.length}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                Service in 30 days
+                Upcoming reminders
               </p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Upcoming Payments - 2 Weeks */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Upcoming Payments (Next 2 Weeks)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {upcomingPayments.map((payment, idx) => {
+              const isBill = payment.type === 'bill';
+              const item = payment.item;
+              const name = isBill ? (item as Bill).provider : (item as Subscription).name;
+              const amount = Number(isBill ? (item as Bill).amount : (item as Subscription).cost);
+              const date = isBill ? (item as Bill).dueDate : (item as Subscription).renewalDate;
+              
+              return (
+                <div key={`${payment.type}-${item.id}`} className="glass-card p-4 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "p-2 rounded-lg",
+                      isBill ? "bg-rose-100 text-rose-600" : "bg-purple-100 text-purple-600"
+                    )}>
+                      {isBill ? <Receipt className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-800 dark:text-slate-200">{name}</p>
+                      <p className="text-xs text-slate-500">{date}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-slate-800 dark:text-slate-100">${amount.toFixed(2)}</p>
+                    <span className={cn(
+                      "text-xs px-2 py-0.5 rounded-full",
+                      isBill ? "bg-rose-100 text-rose-700" : "bg-purple-100 text-purple-700"
+                    )}>
+                      {isBill ? "Bill" : "Subscription"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+            {upcomingPayments.length === 0 && (
+              <p className="text-slate-500 col-span-full text-center py-6">No upcoming payments in the next 2 weeks</p>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

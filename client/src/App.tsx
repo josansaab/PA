@@ -11,6 +11,7 @@ import Tasks from "@/pages/tasks";
 import Bills from "@/pages/bills";
 import Subscriptions from "@/pages/subscriptions";
 import CarMaintenance from "@/pages/car";
+import KidsEvents from "@/pages/kids-events";
 import Notes from "@/pages/notes";
 import Settings from "@/pages/settings";
 
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/bills" component={Bills} />
       <Route path="/subscriptions" component={Subscriptions} />
       <Route path="/car" component={CarMaintenance} />
+      <Route path="/kids-events" component={KidsEvents} />
       <Route path="/notes" component={Notes} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />

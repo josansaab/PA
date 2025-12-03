@@ -3,12 +3,15 @@ import {
   type Task, type InsertTask,
   type Bill, type InsertBill,
   type Subscription, type InsertSubscription,
+  type Car, type InsertCar,
   type CarService, type InsertCarService,
+  type KidsEvent, type InsertKidsEvent,
   type Note, type InsertNote,
-  users, tasks, bills, subscriptions, carServices, notes
+  users, tasks, bills, subscriptions, cars, carServices, kidsEvents, notes
 } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, gte, lte, and, sql } from "drizzle-orm";
 import { db } from "./db";
+import { addDays, format } from "date-fns";
 
 export interface IStorage {
   // User methods
@@ -37,6 +40,13 @@ export interface IStorage {
   updateSubscription(id: number, subscription: Partial<InsertSubscription>): Promise<Subscription | undefined>;
   deleteSubscription(id: number): Promise<void>;
 
+  // Car methods
+  getCars(): Promise<Car[]>;
+  getCar(id: number): Promise<Car | undefined>;
+  createCar(car: InsertCar): Promise<Car>;
+  updateCar(id: number, car: Partial<InsertCar>): Promise<Car | undefined>;
+  deleteCar(id: number): Promise<void>;
+
   // Car Service methods
   getCarServices(): Promise<CarService[]>;
   getCarService(id: number): Promise<CarService | undefined>;
@@ -44,9 +54,19 @@ export interface IStorage {
   updateCarService(id: number, carService: Partial<InsertCarService>): Promise<CarService | undefined>;
   deleteCarService(id: number): Promise<void>;
 
+  // Kids Events methods
+  getKidsEvents(): Promise<KidsEvent[]>;
+  getKidsEvent(id: number): Promise<KidsEvent | undefined>;
+  createKidsEvent(event: InsertKidsEvent): Promise<KidsEvent>;
+  updateKidsEvent(id: number, event: Partial<InsertKidsEvent>): Promise<KidsEvent | undefined>;
+  deleteKidsEvent(id: number): Promise<void>;
+
   // Note methods
   getNote(): Promise<Note | undefined>;
   updateNote(content: string): Promise<Note>;
+
+  // Dashboard methods
+  getUpcomingPayments(days: number): Promise<{ type: 'bill' | 'subscription'; item: Bill | Subscription }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -138,6 +158,30 @@ export class DatabaseStorage implements IStorage {
     await db.delete(subscriptions).where(eq(subscriptions.id, id));
   }
 
+  // Car methods
+  async getCars(): Promise<Car[]> {
+    return db.select().from(cars).orderBy(desc(cars.createdAt));
+  }
+
+  async getCar(id: number): Promise<Car | undefined> {
+    const result = await db.select().from(cars).where(eq(cars.id, id));
+    return result[0];
+  }
+
+  async createCar(car: InsertCar): Promise<Car> {
+    const result = await db.insert(cars).values(car).returning();
+    return result[0];
+  }
+
+  async updateCar(id: number, car: Partial<InsertCar>): Promise<Car | undefined> {
+    const result = await db.update(cars).set(car).where(eq(cars.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteCar(id: number): Promise<void> {
+    await db.delete(cars).where(eq(cars.id, id));
+  }
+
   // Car Service methods
   async getCarServices(): Promise<CarService[]> {
     return db.select().from(carServices).orderBy(desc(carServices.createdAt));
@@ -162,6 +206,30 @@ export class DatabaseStorage implements IStorage {
     await db.delete(carServices).where(eq(carServices.id, id));
   }
 
+  // Kids Events methods
+  async getKidsEvents(): Promise<KidsEvent[]> {
+    return db.select().from(kidsEvents).orderBy(desc(kidsEvents.eventDate));
+  }
+
+  async getKidsEvent(id: number): Promise<KidsEvent | undefined> {
+    const result = await db.select().from(kidsEvents).where(eq(kidsEvents.id, id));
+    return result[0];
+  }
+
+  async createKidsEvent(event: InsertKidsEvent): Promise<KidsEvent> {
+    const result = await db.insert(kidsEvents).values(event).returning();
+    return result[0];
+  }
+
+  async updateKidsEvent(id: number, event: Partial<InsertKidsEvent>): Promise<KidsEvent | undefined> {
+    const result = await db.update(kidsEvents).set(event).where(eq(kidsEvents.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteKidsEvent(id: number): Promise<void> {
+    await db.delete(kidsEvents).where(eq(kidsEvents.id, id));
+  }
+
   // Note methods
   async getNote(): Promise<Note | undefined> {
     const result = await db.select().from(notes).limit(1);
@@ -180,6 +248,39 @@ export class DatabaseStorage implements IStorage {
     }
     const result = await db.update(notes).set({ content, updatedAt: new Date() }).where(eq(notes.id, existing.id)).returning();
     return result[0];
+  }
+
+  // Dashboard methods
+  async getUpcomingPayments(days: number = 14): Promise<{ type: 'bill' | 'subscription'; item: Bill | Subscription }[]> {
+    const today = format(new Date(), "yyyy-MM-dd");
+    const futureDate = format(addDays(new Date(), days), "yyyy-MM-dd");
+
+    const upcomingBills = await db.select().from(bills)
+      .where(
+        and(
+          gte(bills.dueDate, today),
+          lte(bills.dueDate, futureDate)
+        )
+      )
+      .orderBy(bills.dueDate);
+
+    const upcomingSubs = await db.select().from(subscriptions)
+      .where(
+        and(
+          gte(subscriptions.renewalDate, today),
+          lte(subscriptions.renewalDate, futureDate)
+        )
+      )
+      .orderBy(subscriptions.renewalDate);
+
+    const combined: { type: 'bill' | 'subscription'; item: Bill | Subscription; date: string }[] = [
+      ...upcomingBills.map(b => ({ type: 'bill' as const, item: b, date: b.dueDate })),
+      ...upcomingSubs.map(s => ({ type: 'subscription' as const, item: s, date: s.renewalDate })),
+    ];
+
+    combined.sort((a, b) => a.date.localeCompare(b.date));
+
+    return combined.map(({ type, item }) => ({ type, item }));
   }
 }
 

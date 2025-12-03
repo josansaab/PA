@@ -45,6 +45,8 @@ export const bills = pgTable("bills", {
   dueDate: text("due_date").notNull(),
   status: text("status").notNull(),
   lastPaid: text("last_paid"),
+  attachmentUrl: text("attachment_url"),
+  source: text("source").default("manual"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -73,9 +75,30 @@ export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
 export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
 export type Subscription = typeof subscriptions.$inferSelect;
 
+// Cars table
+export const cars = pgTable("cars", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(),
+  make: text("make"),
+  model: text("model"),
+  year: integer("year"),
+  licensePlate: text("license_plate"),
+  vin: text("vin"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCarSchema = createInsertSchema(cars).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCar = z.infer<typeof insertCarSchema>;
+export type Car = typeof cars.$inferSelect;
+
 // Car Services table
 export const carServices = pgTable("car_services", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  carId: integer("car_id"),
   type: text("type").notNull(),
   date: text("date"),
   km: integer("km"),
@@ -90,6 +113,30 @@ export const insertCarServiceSchema = createInsertSchema(carServices).omit({
 });
 export type InsertCarService = z.infer<typeof insertCarServiceSchema>;
 export type CarService = typeof carServices.$inferSelect;
+
+// Kids Events table (from Gmail sync)
+export const kidsEvents = pgTable("kids_events", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  title: text("title").notNull(),
+  eventDate: text("event_date").notNull(),
+  eventTime: text("event_time"),
+  childName: text("child_name"),
+  location: text("location"),
+  description: text("description"),
+  source: text("source").default("manual"),
+  sourceId: text("source_id"),
+  reminderEnabled: boolean("reminder_enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertKidsEventSchema = createInsertSchema(kidsEvents, {
+  reminderEnabled: z.boolean().default(true),
+}).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertKidsEvent = z.infer<typeof insertKidsEventSchema>;
+export type KidsEvent = typeof kidsEvents.$inferSelect;
 
 // Notes table
 export const notes = pgTable("notes", {

@@ -1,6 +1,15 @@
-import type { Task, Bill, Subscription, CarService, Note, InsertTask, InsertBill, InsertSubscription, InsertCarService } from "@shared/schema";
+import type { Task, Bill, Subscription, Car, CarService, KidsEvent, Note, InsertTask, InsertBill, InsertSubscription, InsertCar, InsertCarService, InsertKidsEvent } from "@shared/schema";
 
 const API_BASE = "/api";
+
+// Dashboard API
+export type UpcomingPayment = { type: 'bill' | 'subscription'; item: Bill | Subscription };
+
+export async function getUpcomingPayments(days: number = 14): Promise<UpcomingPayment[]> {
+  const res = await fetch(`${API_BASE}/dashboard/upcoming-payments?days=${days}`);
+  if (!res.ok) throw new Error("Failed to fetch upcoming payments");
+  return res.json();
+}
 
 // Tasks API
 export async function getTasks(): Promise<Task[]> {
@@ -98,6 +107,38 @@ export async function deleteSubscription(id: number): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete subscription");
 }
 
+// Cars API
+export async function getCars(): Promise<Car[]> {
+  const res = await fetch(`${API_BASE}/cars`);
+  if (!res.ok) throw new Error("Failed to fetch cars");
+  return res.json();
+}
+
+export async function createCar(car: InsertCar): Promise<Car> {
+  const res = await fetch(`${API_BASE}/cars`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(car),
+  });
+  if (!res.ok) throw new Error("Failed to create car");
+  return res.json();
+}
+
+export async function updateCar(id: number, car: Partial<InsertCar>): Promise<Car> {
+  const res = await fetch(`${API_BASE}/cars/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(car),
+  });
+  if (!res.ok) throw new Error("Failed to update car");
+  return res.json();
+}
+
+export async function deleteCar(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/cars/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete car");
+}
+
 // Car Services API
 export async function getCarServices(): Promise<CarService[]> {
   const res = await fetch(`${API_BASE}/car-services`);
@@ -128,6 +169,38 @@ export async function updateCarService(id: number, service: Partial<InsertCarSer
 export async function deleteCarService(id: number): Promise<void> {
   const res = await fetch(`${API_BASE}/car-services/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete car service");
+}
+
+// Kids Events API
+export async function getKidsEvents(): Promise<KidsEvent[]> {
+  const res = await fetch(`${API_BASE}/kids-events`);
+  if (!res.ok) throw new Error("Failed to fetch kids events");
+  return res.json();
+}
+
+export async function createKidsEvent(event: InsertKidsEvent): Promise<KidsEvent> {
+  const res = await fetch(`${API_BASE}/kids-events`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(event),
+  });
+  if (!res.ok) throw new Error("Failed to create kids event");
+  return res.json();
+}
+
+export async function updateKidsEvent(id: number, event: Partial<InsertKidsEvent>): Promise<KidsEvent> {
+  const res = await fetch(`${API_BASE}/kids-events/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(event),
+  });
+  if (!res.ok) throw new Error("Failed to update kids event");
+  return res.json();
+}
+
+export async function deleteKidsEvent(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/kids-events/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete kids event");
 }
 
 // Notes API

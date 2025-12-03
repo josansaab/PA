@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, insertBillSchema, insertSubscriptionSchema, insertCarServiceSchema, insertNoteSchema } from "@shared/schema";
+import { insertTaskSchema, insertBillSchema, insertSubscriptionSchema, insertCarSchema, insertCarServiceSchema, insertKidsEventSchema } from "@shared/schema";
 import { fromError } from "zod-validation-error";
 
 export async function registerRoutes(
@@ -9,6 +9,17 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  // Dashboard - Upcoming Payments
+  app.get("/api/dashboard/upcoming-payments", async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 14;
+      const payments = await storage.getUpcomingPayments(days);
+      res.json(payments);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch upcoming payments" });
+    }
+  });
+
   // Tasks API
   app.get("/api/tasks", async (req, res) => {
     try {
@@ -147,6 +158,52 @@ export async function registerRoutes(
     }
   });
 
+  // Cars API
+  app.get("/api/cars", async (req, res) => {
+    try {
+      const cars = await storage.getCars();
+      res.json(cars);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch cars" });
+    }
+  });
+
+  app.post("/api/cars", async (req, res) => {
+    try {
+      const result = insertCarSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: fromError(result.error).toString() });
+      }
+      const car = await storage.createCar(result.data);
+      res.status(201).json(car);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create car" });
+    }
+  });
+
+  app.patch("/api/cars/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const car = await storage.updateCar(id, req.body);
+      if (!car) {
+        return res.status(404).json({ error: "Car not found" });
+      }
+      res.json(car);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update car" });
+    }
+  });
+
+  app.delete("/api/cars/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteCar(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete car" });
+    }
+  });
+
   // Car Services API
   app.get("/api/car-services", async (req, res) => {
     try {
@@ -190,6 +247,52 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete car service" });
+    }
+  });
+
+  // Kids Events API
+  app.get("/api/kids-events", async (req, res) => {
+    try {
+      const events = await storage.getKidsEvents();
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch kids events" });
+    }
+  });
+
+  app.post("/api/kids-events", async (req, res) => {
+    try {
+      const result = insertKidsEventSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: fromError(result.error).toString() });
+      }
+      const event = await storage.createKidsEvent(result.data);
+      res.status(201).json(event);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create kids event" });
+    }
+  });
+
+  app.patch("/api/kids-events/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const event = await storage.updateKidsEvent(id, req.body);
+      if (!event) {
+        return res.status(404).json({ error: "Kids event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update kids event" });
+    }
+  });
+
+  app.delete("/api/kids-events/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteKidsEvent(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete kids event" });
     }
   });
 

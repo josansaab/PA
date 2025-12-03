@@ -6,6 +6,7 @@ import {
   Receipt,
   CreditCard,
   Car,
+  School,
   StickyNote,
   Settings,
   Menu,
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { label: "Bills", icon: Receipt, href: "/bills" },
   { label: "Subscriptions", icon: CreditCard, href: "/subscriptions" },
   { label: "Car", icon: Car, href: "/car" },
+  { label: "Kids Events", icon: School, href: "/kids-events" },
   { label: "Notes", icon: StickyNote, href: "/notes" },
   { label: "Settings", icon: Settings, href: "/settings" },
 ];
