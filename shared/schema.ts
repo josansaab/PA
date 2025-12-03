@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -16,3 +16,90 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// Tasks table
+export const tasks = pgTable("tasks", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  title: text("title").notNull(),
+  category: text("category").notNull(),
+  dueDate: text("due_date").notNull(),
+  completed: boolean("completed").default(false).notNull(),
+  priority: text("priority").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertTaskSchema = createInsertSchema(tasks, {
+  completed: z.boolean().default(false),
+}).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type Task = typeof tasks.$inferSelect;
+
+// Bills table
+export const bills = pgTable("bills", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  provider: text("provider").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  dueDate: text("due_date").notNull(),
+  status: text("status").notNull(),
+  lastPaid: text("last_paid"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertBillSchema = createInsertSchema(bills).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertBill = z.infer<typeof insertBillSchema>;
+export type Bill = typeof bills.$inferSelect;
+
+// Subscriptions table
+export const subscriptions = pgTable("subscriptions", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(),
+  cost: decimal("cost", { precision: 10, scale: 2 }).notNull(),
+  cycle: text("cycle").notNull(),
+  renewalDate: text("renewal_date").notNull(),
+  logo: text("logo"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+export type Subscription = typeof subscriptions.$inferSelect;
+
+// Car Services table
+export const carServices = pgTable("car_services", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  type: text("type").notNull(),
+  date: text("date"),
+  km: integer("km"),
+  notes: text("notes"),
+  status: text("status").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCarServiceSchema = createInsertSchema(carServices).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertCarService = z.infer<typeof insertCarServiceSchema>;
+export type CarService = typeof carServices.$inferSelect;
+
+// Notes table
+export const notes = pgTable("notes", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  content: text("content").notNull().default(""),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertNoteSchema = createInsertSchema(notes).omit({
+  id: true,
+});
+export type InsertNote = z.infer<typeof insertNoteSchema>;
+export type Note = typeof notes.$inferSelect;

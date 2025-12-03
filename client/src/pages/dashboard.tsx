@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { CheckSquare, Receipt, CreditCard, Car, ArrowUpRight, TrendingUp } from "lucide-react";
 import { VoiceInput } from "@/components/voice-input";
 import { MOCK_TASKS, MOCK_BILLS, MOCK_SUBSCRIPTIONS } from "@/lib/mock-data";
