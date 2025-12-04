@@ -65,6 +65,13 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
     if (isListening) {
       recognitionRef.current?.stop();
     } else {
+      // Unlock speech synthesis for iOS Safari
+      if ('speechSynthesis' in window) {
+        const silent = new SpeechSynthesisUtterance('');
+        silent.volume = 0;
+        window.speechSynthesis.speak(silent);
+      }
+      
       setTranscript("");
       recognitionRef.current?.start();
       setIsListening(true);
