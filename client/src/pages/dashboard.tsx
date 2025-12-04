@@ -76,6 +76,29 @@ export default function Dashboard() {
     }
   };
 
+  const handleVoiceCommand = (text: string) => {
+    const lowerText = text.toLowerCase().trim();
+    
+    const groceryPatterns = [
+      /add (.+) to (?:the )?grocer(?:y|ies)(?: list)?/i,
+      /add (.+) to (?:the )?shopping(?: list)?/i,
+      /(?:put|get) (.+) (?:on|to) (?:the )?(?:grocery|shopping)(?: list)?/i,
+      /(?:i need|we need|buy) (.+)/i,
+      /add (.+)/i,
+    ];
+    
+    for (const pattern of groceryPatterns) {
+      const match = lowerText.match(pattern);
+      if (match && match[1]) {
+        const item = match[1].trim();
+        if (item) {
+          createGroceryMutation.mutate({ name: item });
+          return;
+        }
+      }
+    }
+  };
+
   const tasksDueToday = tasks.filter(t => t.dueDate === format(new Date(), "yyyy-MM-dd")).length;
   const billsDue = bills.filter(b => b.status === "Due").length;
   const highPriorityTasks = tasks.filter(t => t.priority === "High").length;
@@ -288,7 +311,7 @@ export default function Dashboard() {
             <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Quick Add</h3>
             <Card className="glass-card h-[200px] flex flex-col items-center justify-center text-center p-6 relative overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 group-hover:scale-110 transition-transform duration-500" />
-              <VoiceInput onTranscript={(text) => console.log("Transcript:", text)} />
+              <VoiceInput onTranscript={handleVoiceCommand} />
               <p className="mt-4 text-sm text-muted-foreground">
                 Tap to add a task or reminder via voice
               </p>
