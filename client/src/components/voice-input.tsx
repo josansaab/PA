@@ -33,7 +33,8 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
         const current = event.resultIndex;
         const transcriptText = event.results[current][0].transcript;
         setTranscript(transcriptText);
-        if (onTranscript) {
+        
+        if (event.results[current].isFinal && onTranscript) {
           onTranscript(transcriptText);
         }
       };
