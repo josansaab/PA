@@ -2,19 +2,26 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CheckSquare, Receipt, CreditCard, School, ShoppingCart, Plus, X, Check } from "lucide-react";
+import { CheckSquare, Receipt, CreditCard, School, ShoppingCart, Plus, X, Check, CheckCircle } from "lucide-react";
 import { VoiceInput } from "@/components/voice-input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { formatDisplayDate } from "@/lib/date-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getTasks, getBills, getSubscriptions, getUpcomingPayments, getKidsEvents, getGroceries, createGrocery, updateGrocery, deleteGrocery, type UpcomingPayment } from "@/lib/api";
+import { getTasks, getBills, getSubscriptions, getUpcomingPayments, getKidsEvents, getGroceries, createGrocery, updateGrocery, deleteGrocery, updateBill, type UpcomingPayment } from "@/lib/api";
 import type { Bill, Subscription } from "@shared/schema";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [newGroceryItem, setNewGroceryItem] = useState("");
+  const [selectedPayment, setSelectedPayment] = useState<{ type: 'bill' | 'subscription'; item: Bill | Subscription } | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks"],
@@ -68,6 +75,43 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["groceries"] });
     },
   });
+
+  const updateBillMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Bill> }) =>
+      updateBill(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bills"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming-payments"] });
+      toast({ title: "Bill updated" });
+      setEditDialogOpen(false);
+      setSelectedPayment(null);
+    },
+  });
+
+  const handlePaymentClick = (payment: UpcomingPayment) => {
+    setSelectedPayment({ type: payment.type, item: payment.item });
+    setEditDialogOpen(true);
+  };
+
+  const handleMarkPaid = () => {
+    if (selectedPayment?.type === 'bill') {
+      const bill = selectedPayment.item as Bill;
+      updateBillMutation.mutate({
+        id: bill.id,
+        data: { status: "Paid", lastPaid: format(new Date(), "yyyy-MM-dd") }
+      });
+    }
+  };
+
+  const handleStatusChange = (status: string) => {
+    if (selectedPayment?.type === 'bill') {
+      const bill = selectedPayment.item as Bill;
+      updateBillMutation.mutate({
+        id: bill.id,
+        data: { status }
+      });
+    }
+  };
 
   const handleAddGrocery = (e: React.FormEvent) => {
     e.preventDefault();
@@ -275,9 +319,15 @@ export default function Dashboard() {
               const name = isBill ? (item as Bill).provider : (item as Subscription).name;
               const amount = Number(isBill ? (item as Bill).amount : (item as Subscription).cost);
               const date = isBill ? (item as Bill).dueDate : (item as Subscription).renewalDate;
+              const status = isBill ? (item as Bill).status : null;
               
               return (
-                <div key={`${payment.type}-${item.id}`} className="glass-card p-4 rounded-xl flex items-center justify-between">
+                <div 
+                  key={`${payment.type}-${item.id}`} 
+                  className="glass-card p-4 rounded-xl flex items-center justify-between cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all"
+                  onClick={() => handlePaymentClick(payment)}
+                  data-testid={`payment-card-${payment.type}-${item.id}`}
+                >
                   <div className="flex items-center gap-3">
                     <div className={cn(
                       "p-2 rounded-lg",
@@ -294,9 +344,11 @@ export default function Dashboard() {
                     <p className="font-bold text-slate-800 dark:text-slate-100">${amount.toFixed(2)}</p>
                     <span className={cn(
                       "text-xs px-2 py-0.5 rounded-full",
-                      isBill ? "bg-rose-100 text-rose-700" : "bg-purple-100 text-purple-700"
+                      isBill && status === "Paid" ? "bg-green-100 text-green-700" :
+                      isBill && status === "Overdue" ? "bg-rose-100 text-rose-700" :
+                      isBill ? "bg-amber-100 text-amber-700" : "bg-purple-100 text-purple-700"
                     )}>
-                      {isBill ? "Bill" : "Subscription"}
+                      {isBill ? status : "Subscription"}
                     </span>
                   </div>
                 </div>
@@ -414,6 +466,79 @@ export default function Dashboard() {
             </Card>
           </div>
         </div>
+
+        {/* Edit Payment Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedPayment?.type === 'bill' ? 'Bill Details' : 'Subscription Details'}
+              </DialogTitle>
+            </DialogHeader>
+            {selectedPayment && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-lg">
+                      {selectedPayment.type === 'bill' 
+                        ? (selectedPayment.item as Bill).provider 
+                        : (selectedPayment.item as Subscription).name}
+                    </span>
+                    <span className="text-xl font-bold">
+                      ${Number(selectedPayment.type === 'bill' 
+                        ? (selectedPayment.item as Bill).amount 
+                        : (selectedPayment.item as Subscription).cost).toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-500">
+                    {selectedPayment.type === 'bill' ? 'Due: ' : 'Renews: '}
+                    {formatDisplayDate(selectedPayment.type === 'bill' 
+                      ? (selectedPayment.item as Bill).dueDate 
+                      : (selectedPayment.item as Subscription).renewalDate)}
+                  </p>
+                </div>
+
+                {selectedPayment.type === 'bill' && (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <Select 
+                        value={(selectedPayment.item as Bill).status} 
+                        onValueChange={handleStatusChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Due">Due</SelectItem>
+                          <SelectItem value="Paid">Paid</SelectItem>
+                          <SelectItem value="Overdue">Overdue</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {(selectedPayment.item as Bill).status !== 'Paid' && (
+                      <Button 
+                        onClick={handleMarkPaid} 
+                        className="w-full bg-green-600 hover:bg-green-700"
+                        disabled={updateBillMutation.isPending}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Mark as Paid
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {selectedPayment.type === 'subscription' && (
+                  <p className="text-sm text-slate-500 text-center">
+                    {(selectedPayment.item as Subscription).cycle} subscription
+                  </p>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
