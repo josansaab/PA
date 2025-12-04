@@ -90,11 +90,16 @@ export default function Dashboard() {
     for (const pattern of groceryPatterns) {
       const match = lowerText.match(pattern);
       if (match && match[1]) {
-        const item = match[1].trim();
-        if (item) {
+        const itemsText = match[1].trim();
+        const items = itemsText
+          .split(/,|\band\b/)
+          .map(item => item.trim())
+          .filter(item => item.length > 0);
+        
+        items.forEach(item => {
           createGroceryMutation.mutate({ name: item });
-          return;
-        }
+        });
+        return;
       }
     }
   };
