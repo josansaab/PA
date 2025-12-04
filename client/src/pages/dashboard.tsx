@@ -76,11 +76,48 @@ export default function Dashboard() {
     }
   };
 
+  const formatDateForSpeech = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const day = date.getDate();
+    const month = date.toLocaleString('en-US', { month: 'long' });
+    const year = date.getFullYear();
+    const currentYear = new Date().getFullYear();
+    
+    const ordinal = (n: number) => {
+      if (n > 3 && n < 21) return n + 'th';
+      switch (n % 10) {
+        case 1: return n + 'st';
+        case 2: return n + 'nd';
+        case 3: return n + 'rd';
+        default: return n + 'th';
+      }
+    };
+    
+    if (year === currentYear) {
+      return `${ordinal(day)} of ${month}`;
+    }
+    return `${ordinal(day)} of ${month} ${year}`;
+  };
+
   const speak = (message: string) => {
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(message);
-      utterance.rate = 1;
+      utterance.rate = 0.9;
       utterance.pitch = 1;
+      
+      // Try to find a natural sounding voice
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice = voices.find(v => 
+        v.name.includes('Samantha') || 
+        v.name.includes('Karen') || 
+        v.name.includes('Daniel') ||
+        v.name.includes('Google') ||
+        (v.lang.startsWith('en') && v.localService)
+      );
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+      
       window.speechSynthesis.speak(utterance);
     }
   };
@@ -106,8 +143,8 @@ export default function Dashboard() {
           s.name.toLowerCase().includes(searchTerm)
         );
         if (sub) {
-          const formattedDate = formatDisplayDate(sub.renewalDate);
-          speak(`${sub.name} renews on ${formattedDate}. The cost is $${Number(sub.cost).toFixed(2)} ${sub.cycle.toLowerCase()}.`);
+          const spokenDate = formatDateForSpeech(sub.renewalDate);
+          speak(`${sub.name} renews on the ${spokenDate}. The cost is $${Number(sub.cost).toFixed(2)} ${sub.cycle.toLowerCase()}.`);
           return;
         }
         
@@ -116,8 +153,8 @@ export default function Dashboard() {
           b.provider.toLowerCase().includes(searchTerm)
         );
         if (bill) {
-          const formattedDate = formatDisplayDate(bill.dueDate);
-          speak(`${bill.provider} is due on ${formattedDate}. The amount is $${Number(bill.amount).toFixed(2)}. Status: ${bill.status}.`);
+          const spokenDate = formatDateForSpeech(bill.dueDate);
+          speak(`${bill.provider} is due on the ${spokenDate}. The amount is $${Number(bill.amount).toFixed(2)}. Status: ${bill.status}.`);
           return;
         }
         
