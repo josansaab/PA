@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTaskSchema, insertBillSchema, insertSubscriptionSchema, insertCarSchema, insertCarServiceSchema, insertKidsEventSchema } from "@shared/schema";
+import { insertTaskSchema, insertBillSchema, insertSubscriptionSchema, insertCarSchema, insertCarServiceSchema, insertKidsEventSchema, insertGrocerySchema } from "@shared/schema";
 import { fromError } from "zod-validation-error";
 
 export async function registerRoutes(
@@ -316,6 +316,52 @@ export async function registerRoutes(
       res.json(note);
     } catch (error) {
       res.status(500).json({ error: "Failed to update note" });
+    }
+  });
+
+  // Groceries API
+  app.get("/api/groceries", async (req, res) => {
+    try {
+      const groceries = await storage.getGroceries();
+      res.json(groceries);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch groceries" });
+    }
+  });
+
+  app.post("/api/groceries", async (req, res) => {
+    try {
+      const result = insertGrocerySchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: fromError(result.error).toString() });
+      }
+      const grocery = await storage.createGrocery(result.data);
+      res.status(201).json(grocery);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create grocery item" });
+    }
+  });
+
+  app.patch("/api/groceries/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const grocery = await storage.updateGrocery(id, req.body);
+      if (!grocery) {
+        return res.status(404).json({ error: "Grocery item not found" });
+      }
+      res.json(grocery);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update grocery item" });
+    }
+  });
+
+  app.delete("/api/groceries/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteGrocery(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete grocery item" });
     }
   });
 

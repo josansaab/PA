@@ -11,7 +11,8 @@ import { useState } from "react";
 import type { KidsEvent, InsertKidsEvent } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { format, parseISO, isPast, isToday, isTomorrow } from "date-fns";
+import { formatDisplayDate } from "@/lib/date-utils";
+import { parseISO, isPast, isToday, isTomorrow } from "date-fns";
 
 export default function KidsEvents() {
   const queryClient = useQueryClient();
@@ -211,7 +212,7 @@ export default function KidsEvents() {
                     <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
                       <span className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
-                        {format(parseISO(event.eventDate), "EEEE, MMMM d, yyyy")}
+                        {formatDisplayDate(event.eventDate)}
                       </span>
                       {event.eventTime && (
                         <span className="flex items-center gap-1">

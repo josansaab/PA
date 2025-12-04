@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { Calendar, Plus, Pencil, Trash2 } from "lucide-react";
+import { formatDisplayDate } from "@/lib/date-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSubscriptions, createSubscription, updateSubscription, deleteSubscription } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -187,7 +188,7 @@ export default function Subscriptions() {
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" /> Renewal
                 </span>
-                <span className="font-medium text-slate-700 dark:text-slate-300">{sub.renewalDate}</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">{formatDisplayDate(sub.renewalDate)}</span>
               </div>
             </div>
           ))}

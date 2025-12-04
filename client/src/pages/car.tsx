@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { Car as CarIcon, Wrench, Plus, Pencil, Trash2 } from "lucide-react";
+import { formatDisplayDate } from "@/lib/date-utils";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getCars, getCarServices, createCar, updateCar, deleteCar, createCarService, updateCarService, deleteCarService } from "@/lib/api";
@@ -357,7 +358,7 @@ export default function CarMaintenance() {
                             <span className="font-semibold text-slate-800 dark:text-slate-100">{service.type}</span>
                          </div>
                          <div className="flex items-center gap-2">
-                           <span className="text-sm text-slate-500">{service.date}</span>
+                           <span className="text-sm text-slate-500">{service.date ? formatDisplayDate(service.date) : ""}</span>
                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditService(service)}>
                                <Pencil className="h-3 w-3" />

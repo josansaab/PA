@@ -1,15 +1,21 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckSquare, Receipt, CreditCard, Car, Calendar, School } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { CheckSquare, Receipt, CreditCard, School, ShoppingCart, Plus, X, Check } from "lucide-react";
 import { VoiceInput } from "@/components/voice-input";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
-import { getTasks, getBills, getSubscriptions, getUpcomingPayments, getKidsEvents, type UpcomingPayment } from "@/lib/api";
+import { formatDisplayDate } from "@/lib/date-utils";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getTasks, getBills, getSubscriptions, getUpcomingPayments, getKidsEvents, getGroceries, createGrocery, updateGrocery, deleteGrocery, type UpcomingPayment } from "@/lib/api";
 import type { Bill, Subscription } from "@shared/schema";
+import { useState } from "react";
 
 export default function Dashboard() {
+  const queryClient = useQueryClient();
+  const [newGroceryItem, setNewGroceryItem] = useState("");
+
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks"],
     queryFn: getTasks,
@@ -34,6 +40,41 @@ export default function Dashboard() {
     queryKey: ["kids-events"],
     queryFn: getKidsEvents,
   });
+
+  const { data: groceries = [] } = useQuery({
+    queryKey: ["groceries"],
+    queryFn: getGroceries,
+  });
+
+  const createGroceryMutation = useMutation({
+    mutationFn: createGrocery,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groceries"] });
+      setNewGroceryItem("");
+    },
+  });
+
+  const updateGroceryMutation = useMutation({
+    mutationFn: ({ id, checked }: { id: number; checked: boolean }) =>
+      updateGrocery(id, { checked }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groceries"] });
+    },
+  });
+
+  const deleteGroceryMutation = useMutation({
+    mutationFn: deleteGrocery,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groceries"] });
+    },
+  });
+
+  const handleAddGrocery = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newGroceryItem.trim()) {
+      createGroceryMutation.mutate({ name: newGroceryItem.trim() });
+    }
+  };
 
   const tasksDueToday = tasks.filter(t => t.dueDate === format(new Date(), "yyyy-MM-dd")).length;
   const billsDue = bills.filter(b => b.status === "Due").length;
@@ -109,7 +150,7 @@ export default function Dashboard() {
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Upcoming Payments (Next 2 Weeks)</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {upcomingPayments.map((payment, idx) => {
+            {upcomingPayments.map((payment) => {
               const isBill = payment.type === 'bill';
               const item = payment.item;
               const name = isBill ? (item as Bill).provider : (item as Subscription).name;
@@ -127,7 +168,7 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <p className="font-medium text-slate-800 dark:text-slate-200">{name}</p>
-                      <p className="text-xs text-slate-500">{date}</p>
+                      <p className="text-xs text-slate-500">{formatDisplayDate(date)}</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -150,7 +191,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Recent Tasks */}
-          <div className="md:col-span-2 space-y-4">
+          <div className="md:col-span-1 space-y-4">
             <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Today's Schedule</h3>
             <div className="space-y-3">
               {tasks.slice(0, 3).map((task) => (
@@ -164,12 +205,9 @@ export default function Dashboard() {
                       <p className={cn("font-medium text-slate-800 dark:text-slate-200", task.completed && "line-through text-slate-400")}>
                         {task.title}
                       </p>
-                      <p className="text-xs text-slate-500">{task.category} • {task.dueDate}</p>
+                      <p className="text-xs text-slate-500">{task.category} • {formatDisplayDate(task.dueDate)}</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    Edit
-                  </Button>
                 </div>
               ))}
               {tasks.length === 0 && (
@@ -178,8 +216,75 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Groceries Checklist */}
+          <div className="md:col-span-1 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <ShoppingCart className="h-5 w-5 text-emerald-500" />
+                Groceries
+              </h3>
+              <span className="text-xs text-slate-500">{groceries.filter(g => g.checked).length}/{groceries.length} done</span>
+            </div>
+            <Card className="glass-card">
+              <CardContent className="p-4 space-y-3">
+                <form onSubmit={handleAddGrocery} className="flex gap-2">
+                  <Input
+                    data-testid="input-grocery"
+                    value={newGroceryItem}
+                    onChange={(e) => setNewGroceryItem(e.target.value)}
+                    placeholder="Add item..."
+                    className="flex-1 h-9"
+                  />
+                  <Button data-testid="button-add-grocery" type="submit" size="sm" className="h-9 px-3">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </form>
+                <div className="space-y-2 max-h-[250px] overflow-y-auto">
+                  {groceries.map((item) => (
+                    <div
+                      key={item.id}
+                      data-testid={`grocery-item-${item.id}`}
+                      className="flex items-center justify-between p-2 rounded-lg bg-white/50 dark:bg-slate-800/50 group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <button
+                          data-testid={`button-toggle-grocery-${item.id}`}
+                          onClick={() => updateGroceryMutation.mutate({ id: item.id, checked: !item.checked })}
+                          className={cn(
+                            "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+                            item.checked
+                              ? "bg-emerald-500 border-emerald-500 text-white"
+                              : "border-slate-300 hover:border-emerald-500 dark:border-slate-600"
+                          )}
+                        >
+                          {item.checked && <Check className="h-3 w-3" />}
+                        </button>
+                        <span className={cn(
+                          "text-sm text-slate-700 dark:text-slate-300",
+                          item.checked && "line-through text-slate-400"
+                        )}>
+                          {item.name}
+                        </span>
+                      </div>
+                      <button
+                        data-testid={`button-delete-grocery-${item.id}`}
+                        onClick={() => deleteGroceryMutation.mutate(item.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-100 rounded dark:hover:bg-rose-900/30"
+                      >
+                        <X className="h-4 w-4 text-rose-500" />
+                      </button>
+                    </div>
+                  ))}
+                  {groceries.length === 0 && (
+                    <p className="text-center text-slate-500 text-sm py-4">No items yet</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Quick Actions / Voice */}
-          <div className="space-y-4">
+          <div className="md:col-span-1 space-y-4">
             <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Quick Add</h3>
             <Card className="glass-card h-[200px] flex flex-col items-center justify-center text-center p-6 relative overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 group-hover:scale-110 transition-transform duration-500" />

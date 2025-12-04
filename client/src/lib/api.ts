@@ -1,4 +1,4 @@
-import type { Task, Bill, Subscription, Car, CarService, KidsEvent, Note, InsertTask, InsertBill, InsertSubscription, InsertCar, InsertCarService, InsertKidsEvent } from "@shared/schema";
+import type { Task, Bill, Subscription, Car, CarService, KidsEvent, Note, Grocery, InsertTask, InsertBill, InsertSubscription, InsertCar, InsertCarService, InsertKidsEvent, InsertGrocery } from "@shared/schema";
 
 const API_BASE = "/api";
 
@@ -218,4 +218,36 @@ export async function updateNote(content: string): Promise<Note> {
   });
   if (!res.ok) throw new Error("Failed to update note");
   return res.json();
+}
+
+// Groceries API
+export async function getGroceries(): Promise<Grocery[]> {
+  const res = await fetch(`${API_BASE}/groceries`);
+  if (!res.ok) throw new Error("Failed to fetch groceries");
+  return res.json();
+}
+
+export async function createGrocery(item: InsertGrocery): Promise<Grocery> {
+  const res = await fetch(`${API_BASE}/groceries`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(item),
+  });
+  if (!res.ok) throw new Error("Failed to create grocery item");
+  return res.json();
+}
+
+export async function updateGrocery(id: number, item: Partial<InsertGrocery>): Promise<Grocery> {
+  const res = await fetch(`${API_BASE}/groceries/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(item),
+  });
+  if (!res.ok) throw new Error("Failed to update grocery item");
+  return res.json();
+}
+
+export async function deleteGrocery(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/groceries/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete grocery item");
 }

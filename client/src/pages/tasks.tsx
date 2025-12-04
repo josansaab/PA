@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Calendar as CalendarIcon } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { formatDisplayDate } from "@/lib/date-utils";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getTasks, updateTask } from "@/lib/api";
@@ -93,7 +94,7 @@ export default function Tasks() {
                   </Badge>
                   <span className="flex items-center text-xs text-slate-400">
                     <CalendarIcon className="mr-1 h-3 w-3" />
-                    {task.dueDate}
+                    {formatDisplayDate(task.dueDate)}
                   </span>
                 </div>
               </div>

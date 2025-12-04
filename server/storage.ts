@@ -7,7 +7,8 @@ import {
   type CarService, type InsertCarService,
   type KidsEvent, type InsertKidsEvent,
   type Note, type InsertNote,
-  users, tasks, bills, subscriptions, cars, carServices, kidsEvents, notes
+  type Grocery, type InsertGrocery,
+  users, tasks, bills, subscriptions, cars, carServices, kidsEvents, notes, groceries
 } from "@shared/schema";
 import { eq, desc, gte, lte, and, sql } from "drizzle-orm";
 import { db } from "./db";
@@ -64,6 +65,12 @@ export interface IStorage {
   // Note methods
   getNote(): Promise<Note | undefined>;
   updateNote(content: string): Promise<Note>;
+
+  // Grocery methods
+  getGroceries(): Promise<Grocery[]>;
+  createGrocery(item: InsertGrocery): Promise<Grocery>;
+  updateGrocery(id: number, item: Partial<InsertGrocery>): Promise<Grocery | undefined>;
+  deleteGrocery(id: number): Promise<void>;
 
   // Dashboard methods
   getUpcomingPayments(days: number): Promise<{ type: 'bill' | 'subscription'; item: Bill | Subscription }[]>;
@@ -248,6 +255,25 @@ export class DatabaseStorage implements IStorage {
     }
     const result = await db.update(notes).set({ content, updatedAt: new Date() }).where(eq(notes.id, existing.id)).returning();
     return result[0];
+  }
+
+  // Grocery methods
+  async getGroceries(): Promise<Grocery[]> {
+    return db.select().from(groceries).orderBy(desc(groceries.createdAt));
+  }
+
+  async createGrocery(item: InsertGrocery): Promise<Grocery> {
+    const result = await db.insert(groceries).values(item).returning();
+    return result[0];
+  }
+
+  async updateGrocery(id: number, item: Partial<InsertGrocery>): Promise<Grocery | undefined> {
+    const result = await db.update(groceries).set(item).where(eq(groceries.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteGrocery(id: number): Promise<void> {
+    await db.delete(groceries).where(eq(groceries.id, id));
   }
 
   // Dashboard methods

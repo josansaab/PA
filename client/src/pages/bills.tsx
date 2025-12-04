@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { cn } from "@/lib/utils";
+import { formatDisplayDate } from "@/lib/date-utils";
 import { Receipt, Plus, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -189,7 +190,7 @@ export default function Bills() {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{bill.provider}</h3>
-                  <p className="text-sm text-slate-500">Due: {bill.dueDate}</p>
+                  <p className="text-sm text-slate-500">Due: {formatDisplayDate(bill.dueDate)}</p>
                 </div>
               </div>
 

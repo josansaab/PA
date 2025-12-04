@@ -150,3 +150,20 @@ export const insertNoteSchema = createInsertSchema(notes).omit({
 });
 export type InsertNote = z.infer<typeof insertNoteSchema>;
 export type Note = typeof notes.$inferSelect;
+
+// Groceries table
+export const groceries = pgTable("groceries", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(),
+  checked: boolean("checked").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertGrocerySchema = createInsertSchema(groceries, {
+  checked: z.boolean().default(false),
+}).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertGrocery = z.infer<typeof insertGrocerySchema>;
+export type Grocery = typeof groceries.$inferSelect;
