@@ -76,9 +76,57 @@ export default function Dashboard() {
     }
   };
 
+  const speak = (message: string) => {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(message);
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   const handleVoiceCommand = (text: string) => {
     const lowerText = text.toLowerCase().trim();
     
+    // Check for queries about subscriptions/bills
+    const queryPatterns = [
+      /when (?:is|does) (?:the )?(.+?) (?:due|renew|renewal)/i,
+      /(?:what|when) (?:is|are) (?:the )?(.+?) (?:due|renewal|renew)/i,
+      /(.+?) (?:due|renewal) date/i,
+      /tell me (?:about |when )?(?:the )?(.+?) (?:is )?(?:due|renews?)/i,
+    ];
+    
+    for (const pattern of queryPatterns) {
+      const match = lowerText.match(pattern);
+      if (match && match[1]) {
+        const searchTerm = match[1].trim();
+        
+        // Search in subscriptions
+        const sub = subscriptions.find(s => 
+          s.name.toLowerCase().includes(searchTerm)
+        );
+        if (sub) {
+          const formattedDate = formatDisplayDate(sub.renewalDate);
+          speak(`${sub.name} renews on ${formattedDate}. The cost is $${Number(sub.cost).toFixed(2)} ${sub.cycle.toLowerCase()}.`);
+          return;
+        }
+        
+        // Search in bills
+        const bill = bills.find(b => 
+          b.provider.toLowerCase().includes(searchTerm)
+        );
+        if (bill) {
+          const formattedDate = formatDisplayDate(bill.dueDate);
+          speak(`${bill.provider} is due on ${formattedDate}. The amount is $${Number(bill.amount).toFixed(2)}. Status: ${bill.status}.`);
+          return;
+        }
+        
+        speak(`Sorry, I couldn't find ${searchTerm} in your subscriptions or bills.`);
+        return;
+      }
+    }
+    
+    // Check for grocery add commands
     const groceryPatterns = [
       /add (.+) to (?:the )?grocer(?:y|ies)(?: list)?/i,
       /add (.+) to (?:the )?shopping(?: list)?/i,
@@ -99,6 +147,12 @@ export default function Dashboard() {
         items.forEach(item => {
           createGroceryMutation.mutate({ name: item });
         });
+        
+        if (items.length === 1) {
+          speak(`Added ${items[0]} to your grocery list.`);
+        } else {
+          speak(`Added ${items.length} items to your grocery list.`);
+        }
         return;
       }
     }
