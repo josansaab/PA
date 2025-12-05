@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTaskSchema, insertBillSchema, insertSubscriptionSchema, insertCarSchema, insertCarServiceSchema, insertKidsEventSchema, insertGrocerySchema } from "@shared/schema";
 import { fromError } from "zod-validation-error";
-import https from "https";
+import { ProtectApi } from "unifi-protect";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -366,185 +366,113 @@ export async function registerRoutes(
     }
   });
 
-  // Unifi Protect API with Cloud API Key authentication
-  interface UnifiCamera {
-    id: string;
-    mac: string;
-    name: string;
-    model: string;
-    ip: string;
-    status: string;
-    hostId: string;
-  }
+  // Unifi Protect API with local authentication
+  let protectApi: ProtectApi | null = null;
+  let lastLoginAttempt = 0;
 
-  let cachedCameras: UnifiCamera[] = [];
-  let cacheTime = 0;
+  const getProtectApi = async (): Promise<ProtectApi | null> => {
+    const host = process.env.UNIFI_PROTECT_HOST;
+    const username = process.env.UNIFI_PROTECT_USERNAME;
+    const password = process.env.UNIFI_PROTECT_PASSWORD;
 
-  const getUnifiDevices = (): Promise<any> => {
-    return new Promise((resolve, reject) => {
-      const apiKey = process.env.UNIFI_PROTECT_API_KEY;
+    if (!host || !username || !password) {
+      return null;
+    }
 
-      if (!apiKey) {
-        reject(new Error("Unifi Protect API key not configured"));
-        return;
-      }
+    // Don't retry too quickly if login failed
+    if (!protectApi && Date.now() - lastLoginAttempt < 30000) {
+      return null;
+    }
 
-      const options = {
-        hostname: 'api.ui.com',
-        port: 443,
-        path: '/v1/devices',
-        method: 'GET',
-        headers: {
-          'X-API-Key': apiKey,
-          'Accept': 'application/json'
+    if (!protectApi) {
+      lastLoginAttempt = Date.now();
+      try {
+        protectApi = new ProtectApi();
+        const success = await protectApi.login(host, username, password);
+        if (!success) {
+          console.error("Unifi Protect login failed - check credentials");
+          protectApi = null;
+          return null;
         }
-      };
+        console.log("Unifi Protect connected successfully");
+      } catch (err: any) {
+        console.error("Unifi Protect login error:", err.message);
+        protectApi = null;
+        return null;
+      }
+    }
 
-      const req = https.request(options, (response) => {
-        let data = '';
-        response.on('data', chunk => data += chunk);
-        response.on('end', () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch {
-            reject(new Error("Failed to parse response"));
-          }
-        });
-      });
-
-      req.on('error', reject);
-      req.setTimeout(15000, () => {
-        req.destroy();
-        reject(new Error("Request timeout"));
-      });
-      req.end();
-    });
-  };
-
-  const getLocalSnapshot = (host: string, cameraId: string): Promise<Buffer> => {
-    return new Promise((resolve, reject) => {
-      const options = {
-        hostname: host,
-        port: 443,
-        path: `/proxy/protect/api/cameras/${cameraId}/snapshot`,
-        method: 'GET',
-        rejectUnauthorized: false
-      };
-
-      const req = https.request(options, (response) => {
-        const chunks: Buffer[] = [];
-        response.on('data', chunk => chunks.push(chunk));
-        response.on('end', () => resolve(Buffer.concat(chunks)));
-      });
-
-      req.on('error', reject);
-      req.setTimeout(10000, () => {
-        req.destroy();
-        reject(new Error("Request timeout"));
-      });
-      req.end();
-    });
+    return protectApi;
   };
 
   // Check if Unifi Protect is configured
   app.get("/api/unifi/status", async (req, res) => {
     try {
       const host = process.env.UNIFI_PROTECT_HOST;
-      const apiKey = process.env.UNIFI_PROTECT_API_KEY;
+      const username = process.env.UNIFI_PROTECT_USERNAME;
+      const password = process.env.UNIFI_PROTECT_PASSWORD;
 
-      if (!apiKey) {
+      if (!host || !username || !password) {
         return res.json({ configured: false, connected: false });
       }
 
-      try {
-        const devices = await getUnifiDevices();
-        const hasData = devices && devices.data && devices.data.length > 0;
-        res.json({ configured: true, connected: hasData, host: host || 'cloud' });
-      } catch (err: any) {
-        console.error("Unifi status check failed:", err.message);
-        res.json({ configured: true, connected: false, error: err.message });
-      }
+      const api = await getProtectApi();
+      res.json({ 
+        configured: true, 
+        connected: !!api && !!api.bootstrap,
+        host 
+      });
     } catch (error) {
-      res.json({ configured: false, connected: false, error: "Connection failed" });
+      res.json({ configured: true, connected: false, error: "Connection failed" });
     }
   });
 
   // Get all cameras
   app.get("/api/unifi/cameras", async (req, res) => {
     try {
-      // Use cache if less than 30 seconds old
-      if (cachedCameras.length > 0 && Date.now() - cacheTime < 30000) {
-        return res.json(cachedCameras);
-      }
-
-      const devices = await getUnifiDevices();
-      
-      if (!devices || !devices.data) {
-        console.error("No device data returned from Unifi API");
+      const api = await getProtectApi();
+      if (!api || !api.bootstrap) {
         return res.json([]);
       }
 
-      // Extract cameras (productLine = "protect") from all hosts
-      const cameras: UnifiCamera[] = [];
-      for (const host of devices.data) {
-        if (host.devices) {
-          for (const device of host.devices) {
-            if (device.productLine === 'protect') {
-              cameras.push({
-                id: device.id || device.mac,
-                mac: device.mac,
-                name: device.name,
-                model: device.model,
-                ip: device.ip,
-                status: device.status,
-                hostId: host.hostId
-              });
-            }
-          }
-        }
-      }
-
-      cachedCameras = cameras;
-      cacheTime = Date.now();
-
-      const result = cameras.map(camera => ({
+      const cameras = api.bootstrap.cameras.map(camera => ({
         id: camera.id,
         name: camera.name,
-        type: camera.model,
-        state: camera.status,
-        isConnected: camera.status === 'online'
+        type: camera.type,
+        state: camera.state,
+        isConnected: camera.isConnected
       }));
 
-      res.json(result);
-    } catch (error: any) {
-      console.error("Failed to fetch cameras:", error.message);
+      res.json(cameras);
+    } catch (error) {
+      console.error("Failed to fetch cameras:", error);
       res.json([]);
     }
   });
 
-  // Get camera snapshot (requires local access)
+  // Get camera snapshot
   app.get("/api/unifi/cameras/:id/snapshot", async (req, res) => {
     try {
-      const host = process.env.UNIFI_PROTECT_HOST;
-      
-      if (!host) {
-        return res.status(503).json({ error: "Local Unifi host not configured for snapshots" });
+      const api = await getProtectApi();
+      if (!api || !api.bootstrap) {
+        return res.status(503).json({ error: "Unifi Protect not connected" });
       }
 
-      // Find camera IP from cache
-      const camera = cachedCameras.find(c => c.id === req.params.id || c.mac === req.params.id);
-      
-      const snapshot = await getLocalSnapshot(host, req.params.id);
-      
-      if (!snapshot || snapshot.length === 0) {
+      const camera = api.bootstrap.cameras.find(c => c.id === req.params.id);
+      if (!camera) {
+        return res.status(404).json({ error: "Camera not found" });
+      }
+
+      const snapshot = await api.getSnapshot(camera);
+      if (!snapshot) {
         return res.status(500).json({ error: "Failed to get snapshot" });
       }
 
       res.set("Content-Type", "image/jpeg");
       res.set("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.send(snapshot);
-    } catch (error: any) {
-      console.error("Failed to get snapshot:", error.message);
+      res.send(Buffer.from(snapshot));
+    } catch (error) {
+      console.error("Failed to get snapshot:", error);
       res.status(500).json({ error: "Failed to get snapshot" });
     }
   });
