@@ -311,14 +311,19 @@ export default function CarMaintenance() {
         {/* Cars List */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {cars.map((car) => (
-            <div key={car.id} className="glass-card p-6 rounded-3xl relative overflow-hidden group">
+            <div 
+              key={car.id} 
+              className="glass-card p-6 rounded-3xl relative overflow-hidden group cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all"
+              onClick={() => handleEditCar(car)}
+              data-testid={`car-card-${car.id}`}
+            >
               <div className="absolute -right-10 -top-10 h-32 w-32 bg-blue-500/10 rounded-full blur-3xl" />
               
-              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                <Button variant="ghost" size="icon" onClick={() => handleEditCar(car)}>
+              <div className="absolute top-4 right-4 flex gap-2">
+                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditCar(car); }}>
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => deleteCarMutation.mutate(car.id)}>
+                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); deleteCarMutation.mutate(car.id); }}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
