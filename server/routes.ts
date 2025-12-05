@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTaskSchema, insertBillSchema, insertSubscriptionSchema, insertCarSchema, insertCarServiceSchema, insertKidsEventSchema, insertGrocerySchema } from "@shared/schema";
 import { fromError } from "zod-validation-error";
-import { ProtectApi } from "unifi-protect";
+import https from "https";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -366,61 +366,121 @@ export async function registerRoutes(
     }
   });
 
-  // Unifi Protect API
-  let protectApi: ProtectApi | null = null;
+  // Unifi Protect API with API Key authentication
+  const makeUnifiRequest = (path: string): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const host = process.env.UNIFI_PROTECT_HOST;
+      const apiKey = process.env.UNIFI_PROTECT_API_KEY;
 
-  const getProtectApi = async () => {
-    const host = process.env.UNIFI_PROTECT_HOST;
-    const username = process.env.UNIFI_PROTECT_USERNAME;
-    const password = process.env.UNIFI_PROTECT_PASSWORD;
-
-    if (!host || !username || !password) {
-      return null;
-    }
-
-    if (!protectApi) {
-      protectApi = new ProtectApi();
-      const success = await protectApi.login(host, username, password);
-      if (!success) {
-        protectApi = null;
-        return null;
+      if (!host || !apiKey) {
+        reject(new Error("Unifi Protect not configured"));
+        return;
       }
-    }
 
-    return protectApi;
+      const options = {
+        hostname: host,
+        port: 443,
+        path: path,
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Accept': 'application/json'
+        },
+        rejectUnauthorized: false
+      };
+
+      const req = https.request(options, (response) => {
+        let data = '';
+        response.on('data', chunk => data += chunk);
+        response.on('end', () => {
+          try {
+            if (response.headers['content-type']?.includes('application/json')) {
+              resolve(JSON.parse(data));
+            } else {
+              resolve(data);
+            }
+          } catch {
+            resolve(data);
+          }
+        });
+      });
+
+      req.on('error', reject);
+      req.setTimeout(10000, () => {
+        req.destroy();
+        reject(new Error("Request timeout"));
+      });
+      req.end();
+    });
+  };
+
+  const getUnifiSnapshot = (path: string): Promise<Buffer> => {
+    return new Promise((resolve, reject) => {
+      const host = process.env.UNIFI_PROTECT_HOST;
+      const apiKey = process.env.UNIFI_PROTECT_API_KEY;
+
+      if (!host || !apiKey) {
+        reject(new Error("Unifi Protect not configured"));
+        return;
+      }
+
+      const options = {
+        hostname: host,
+        port: 443,
+        path: path,
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`
+        },
+        rejectUnauthorized: false
+      };
+
+      const req = https.request(options, (response) => {
+        const chunks: Buffer[] = [];
+        response.on('data', chunk => chunks.push(chunk));
+        response.on('end', () => resolve(Buffer.concat(chunks)));
+      });
+
+      req.on('error', reject);
+      req.setTimeout(10000, () => {
+        req.destroy();
+        reject(new Error("Request timeout"));
+      });
+      req.end();
+    });
   };
 
   // Check if Unifi Protect is configured
   app.get("/api/unifi/status", async (req, res) => {
     try {
       const host = process.env.UNIFI_PROTECT_HOST;
-      const username = process.env.UNIFI_PROTECT_USERNAME;
-      const password = process.env.UNIFI_PROTECT_PASSWORD;
+      const apiKey = process.env.UNIFI_PROTECT_API_KEY;
 
-      if (!host || !username || !password) {
+      if (!host || !apiKey) {
         return res.json({ configured: false, connected: false });
       }
 
-      const api = await getProtectApi();
-      res.json({ 
-        configured: true, 
-        connected: !!api,
-        host 
-      });
+      try {
+        await makeUnifiRequest('/proxy/protect/api/bootstrap');
+        res.json({ configured: true, connected: true, host });
+      } catch {
+        res.json({ configured: true, connected: false, host });
+      }
     } catch (error) {
-      res.json({ configured: true, connected: false, error: "Connection failed" });
+      res.json({ configured: false, connected: false, error: "Connection failed" });
     }
   });
 
   // Get all cameras
   app.get("/api/unifi/cameras", async (req, res) => {
     try {
-      const api = await getProtectApi();
-      if (!api || !api.bootstrap) {
+      const bootstrap = await makeUnifiRequest('/proxy/protect/api/bootstrap');
+      
+      if (!bootstrap || !bootstrap.cameras) {
         return res.json([]);
       }
 
-      const cameras = api.bootstrap.cameras.map(camera => ({
+      const cameras = bootstrap.cameras.map((camera: any) => ({
         id: camera.id,
         name: camera.name,
         type: camera.type,
@@ -431,31 +491,22 @@ export async function registerRoutes(
       res.json(cameras);
     } catch (error) {
       console.error("Failed to fetch cameras:", error);
-      res.status(500).json({ error: "Failed to fetch cameras" });
+      res.json([]);
     }
   });
 
   // Get camera snapshot
   app.get("/api/unifi/cameras/:id/snapshot", async (req, res) => {
     try {
-      const api = await getProtectApi();
-      if (!api || !api.bootstrap) {
-        return res.status(503).json({ error: "Unifi Protect not connected" });
-      }
-
-      const camera = api.bootstrap.cameras.find(c => c.id === req.params.id);
-      if (!camera) {
-        return res.status(404).json({ error: "Camera not found" });
-      }
-
-      const snapshot = await api.getSnapshot(camera);
-      if (!snapshot) {
+      const snapshot = await getUnifiSnapshot(`/proxy/protect/api/cameras/${req.params.id}/snapshot`);
+      
+      if (!snapshot || snapshot.length === 0) {
         return res.status(500).json({ error: "Failed to get snapshot" });
       }
 
       res.set("Content-Type", "image/jpeg");
       res.set("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.send(Buffer.from(snapshot));
+      res.send(snapshot);
     } catch (error) {
       console.error("Failed to get snapshot:", error);
       res.status(500).json({ error: "Failed to get snapshot" });
