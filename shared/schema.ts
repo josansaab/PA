@@ -167,3 +167,12 @@ export const insertGrocerySchema = createInsertSchema(groceries, {
 });
 export type InsertGrocery = z.infer<typeof insertGrocerySchema>;
 export type Grocery = typeof groceries.$inferSelect;
+
+// Camera type for frontend (from Unifi Protect API)
+export interface UnifiCamera {
+  id: string;
+  name: string;
+  type: string;
+  state: string;
+  isConnected: boolean;
+}

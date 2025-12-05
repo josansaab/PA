@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTaskSchema, insertBillSchema, insertSubscriptionSchema, insertCarSchema, insertCarServiceSchema, insertKidsEventSchema, insertGrocerySchema } from "@shared/schema";
 import { fromError } from "zod-validation-error";
+import { ProtectApi } from "unifi-protect";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -362,6 +363,102 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete grocery item" });
+    }
+  });
+
+  // Unifi Protect API
+  let protectApi: ProtectApi | null = null;
+
+  const getProtectApi = async () => {
+    const host = process.env.UNIFI_PROTECT_HOST;
+    const username = process.env.UNIFI_PROTECT_USERNAME;
+    const password = process.env.UNIFI_PROTECT_PASSWORD;
+
+    if (!host || !username || !password) {
+      return null;
+    }
+
+    if (!protectApi) {
+      protectApi = new ProtectApi();
+      const success = await protectApi.login(host, username, password);
+      if (!success) {
+        protectApi = null;
+        return null;
+      }
+    }
+
+    return protectApi;
+  };
+
+  // Check if Unifi Protect is configured
+  app.get("/api/unifi/status", async (req, res) => {
+    try {
+      const host = process.env.UNIFI_PROTECT_HOST;
+      const username = process.env.UNIFI_PROTECT_USERNAME;
+      const password = process.env.UNIFI_PROTECT_PASSWORD;
+
+      if (!host || !username || !password) {
+        return res.json({ configured: false, connected: false });
+      }
+
+      const api = await getProtectApi();
+      res.json({ 
+        configured: true, 
+        connected: !!api,
+        host 
+      });
+    } catch (error) {
+      res.json({ configured: true, connected: false, error: "Connection failed" });
+    }
+  });
+
+  // Get all cameras
+  app.get("/api/unifi/cameras", async (req, res) => {
+    try {
+      const api = await getProtectApi();
+      if (!api || !api.bootstrap) {
+        return res.json([]);
+      }
+
+      const cameras = api.bootstrap.cameras.map(camera => ({
+        id: camera.id,
+        name: camera.name,
+        type: camera.type,
+        state: camera.state,
+        isConnected: camera.isConnected
+      }));
+
+      res.json(cameras);
+    } catch (error) {
+      console.error("Failed to fetch cameras:", error);
+      res.status(500).json({ error: "Failed to fetch cameras" });
+    }
+  });
+
+  // Get camera snapshot
+  app.get("/api/unifi/cameras/:id/snapshot", async (req, res) => {
+    try {
+      const api = await getProtectApi();
+      if (!api || !api.bootstrap) {
+        return res.status(503).json({ error: "Unifi Protect not connected" });
+      }
+
+      const camera = api.bootstrap.cameras.find(c => c.id === req.params.id);
+      if (!camera) {
+        return res.status(404).json({ error: "Camera not found" });
+      }
+
+      const snapshot = await api.getSnapshot(camera);
+      if (!snapshot) {
+        return res.status(500).json({ error: "Failed to get snapshot" });
+      }
+
+      res.set("Content-Type", "image/jpeg");
+      res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.send(Buffer.from(snapshot));
+    } catch (error) {
+      console.error("Failed to get snapshot:", error);
+      res.status(500).json({ error: "Failed to get snapshot" });
     }
   });
 
