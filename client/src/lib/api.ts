@@ -251,3 +251,35 @@ export async function deleteGrocery(id: number): Promise<void> {
   const res = await fetch(`${API_BASE}/groceries/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete grocery item");
 }
+
+// Unifi Protect API
+export interface UnifiStatus {
+  configured: boolean;
+  connected: boolean;
+  host?: string;
+  error?: string;
+}
+
+export interface UnifiCamera {
+  id: string;
+  name: string;
+  type: string;
+  state: string;
+  isConnected: boolean;
+}
+
+export async function getUnifiStatus(): Promise<UnifiStatus> {
+  const res = await fetch(`${API_BASE}/unifi/status`);
+  if (!res.ok) throw new Error("Failed to fetch Unifi status");
+  return res.json();
+}
+
+export async function getUnifiCameras(): Promise<UnifiCamera[]> {
+  const res = await fetch(`${API_BASE}/unifi/cameras`);
+  if (!res.ok) throw new Error("Failed to fetch cameras");
+  return res.json();
+}
+
+export function getCameraSnapshotUrl(cameraId: string): string {
+  return `${API_BASE}/unifi/cameras/${cameraId}/snapshot?t=${Date.now()}`;
+}

@@ -2,7 +2,7 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CheckSquare, Receipt, CreditCard, School, ShoppingCart, Plus, X, Check, CheckCircle } from "lucide-react";
+import { CheckSquare, Receipt, CreditCard, School, ShoppingCart, Plus, X, Check, CheckCircle, Camera, RefreshCw, AlertCircle } from "lucide-react";
 import { VoiceInput } from "@/components/voice-input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,9 +11,9 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { formatDisplayDate } from "@/lib/date-utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getTasks, getBills, getSubscriptions, getUpcomingPayments, getKidsEvents, getGroceries, createGrocery, updateGrocery, deleteGrocery, updateBill, type UpcomingPayment } from "@/lib/api";
+import { getTasks, getBills, getSubscriptions, getUpcomingPayments, getKidsEvents, getGroceries, createGrocery, updateGrocery, deleteGrocery, updateBill, getUnifiStatus, getUnifiCameras, getCameraSnapshotUrl, type UpcomingPayment, type UnifiCamera } from "@/lib/api";
 import type { Bill, Subscription } from "@shared/schema";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
@@ -22,6 +22,8 @@ export default function Dashboard() {
   const [newGroceryItem, setNewGroceryItem] = useState("");
   const [selectedPayment, setSelectedPayment] = useState<{ type: 'bill' | 'subscription'; item: Bill | Subscription } | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [cameraRefreshKey, setCameraRefreshKey] = useState(0);
+  const [selectedCamera, setSelectedCamera] = useState<UnifiCamera | null>(null);
 
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks"],
@@ -52,6 +54,33 @@ export default function Dashboard() {
     queryKey: ["groceries"],
     queryFn: getGroceries,
   });
+
+  const { data: unifiStatus } = useQuery({
+    queryKey: ["unifi-status"],
+    queryFn: getUnifiStatus,
+    staleTime: 30000,
+  });
+
+  const { data: cameras = [] } = useQuery({
+    queryKey: ["unifi-cameras"],
+    queryFn: getUnifiCameras,
+    enabled: unifiStatus?.connected === true,
+    staleTime: 30000,
+  });
+
+  useEffect(() => {
+    if (!unifiStatus?.connected || cameras.length === 0) return;
+    
+    const interval = setInterval(() => {
+      setCameraRefreshKey(prev => prev + 1);
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, [unifiStatus?.connected, cameras.length]);
+
+  const handleRefreshCameras = () => {
+    setCameraRefreshKey(prev => prev + 1);
+  };
 
   const createGroceryMutation = useMutation({
     mutationFn: createGrocery,
@@ -359,6 +388,105 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {/* Security Cameras */}
+        {unifiStatus?.configured && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <Camera className="h-5 w-5 text-cyan-500" />
+                Security Cameras
+              </h3>
+              <div className="flex items-center gap-2">
+                {unifiStatus?.connected ? (
+                  <span className="text-xs text-emerald-500 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Live
+                  </span>
+                ) : (
+                  <span className="text-xs text-amber-500 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Disconnected
+                  </span>
+                )}
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleRefreshCameras}
+                  className="h-8 w-8 p-0"
+                  data-testid="button-refresh-cameras"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            {unifiStatus?.connected && cameras.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {cameras.map((camera) => (
+                  <div
+                    key={camera.id}
+                    className="glass-card rounded-xl overflow-hidden cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all"
+                    onClick={() => setSelectedCamera(camera)}
+                    data-testid={`camera-card-${camera.id}`}
+                  >
+                    <div className="relative aspect-video bg-slate-900">
+                      <img
+                        key={`${camera.id}-${cameraRefreshKey}`}
+                        src={getCameraSnapshotUrl(camera.id)}
+                        alt={camera.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23334155" width="100" height="100"/><text fill="%2394a3b8" font-size="14" x="50%" y="50%" dominant-baseline="middle" text-anchor="middle">No Signal</text></svg>';
+                        }}
+                      />
+                      <div className="absolute top-2 left-2 flex items-center gap-1">
+                        <span className={cn(
+                          "w-2 h-2 rounded-full",
+                          camera.isConnected ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
+                        )}></span>
+                      </div>
+                    </div>
+                    <div className="p-3">
+                      <p className="font-medium text-sm text-slate-800 dark:text-slate-200 truncate">{camera.name}</p>
+                      <p className="text-xs text-slate-500">{camera.type}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : unifiStatus?.connected ? (
+              <div className="glass-card p-6 rounded-xl text-center text-slate-500">
+                <Camera className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No cameras found</p>
+              </div>
+            ) : (
+              <div className="glass-card p-6 rounded-xl text-center text-slate-500">
+                <AlertCircle className="h-8 w-8 mx-auto mb-2 text-amber-500 opacity-50" />
+                <p className="mb-2">Could not connect to Unifi Protect</p>
+                <p className="text-xs">Check your credentials in Settings</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Camera Full View Dialog */}
+        <Dialog open={!!selectedCamera} onOpenChange={(open) => !open && setSelectedCamera(null)}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>{selectedCamera?.name}</DialogTitle>
+            </DialogHeader>
+            {selectedCamera && (
+              <div className="relative aspect-video bg-slate-900 rounded-lg overflow-hidden">
+                <img
+                  key={`fullview-${selectedCamera.id}-${cameraRefreshKey}`}
+                  src={getCameraSnapshotUrl(selectedCamera.id)}
+                  alt={selectedCamera.name}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Recent Tasks */}
